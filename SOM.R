@@ -1,7 +1,7 @@
 library(kohonen)
 library(RColorBrewer)
 
-
+# Colors to be used in Class Representation Maps
 QUAL_COL_PALS = brewer.pal.info[brewer.pal.info$category == 'qual',]
 COLORS <- unlist(mapply(brewer.pal, QUAL_COL_PALS$maxcolors, rownames(QUAL_COL_PALS)))
 
@@ -33,19 +33,25 @@ display_mapping_plot <- function(som_model, type, title, clusters = NULL, labels
     col <- NA
   } else if (type == "class") {
     # Set plot arguments
+    colors <- NULL
     col <- NA
     keepMargins <- F
     if(!is.null(labels)) {
+      # Get labels
       unlisted_labels <- unlist(labels)
-      class_colors <- c("gray", COLORS)
-      numeric_labels <- as.numeric(unlisted_labels)
-      bgcol <- class_colors[get_bgcol_num(som_model, numeric_labels)]
-      colors <- bgcol
-      # Legend
-      legend <- T
-      
-      legend_text <- c("None", strsplit(toString(unique(unlisted_labels)), ", ")[[1]])
-      fill_colors <- class_colors[1:length(legend_text)]
+      # Checks to see if labels are not numbers
+      if(!is.numeric(unlisted_labels)) {
+        # Get Colors
+        class_colors <- c("gray", COLORS)
+        # Turn Labels into numbers
+        numeric_labels <- as.numeric(unlisted_labels)
+        # Get colors for each node based on numeric labels
+        colors <- class_colors[get_bgcol_num(som_model, numeric_labels)]
+        # Legend
+        legend <- T
+        legend_text <- c("None", strsplit(toString(unique(unlisted_labels)), ", ")[[1]])
+        fill_colors <- class_colors[1:length(legend_text)]
+      }
     }
   } else {
     # Set plot arguments
@@ -55,8 +61,9 @@ display_mapping_plot <- function(som_model, type, title, clusters = NULL, labels
     if(!is.null(labels)) {
       # Unlist the given labels
       unlisted_labels <- unlist(labels)
-      # Get numeric values for labels
+      # Checks to see if labels are not numbers
       if(!is.numeric(unlisted_labels)) {
+        # Get numeric values for labels
         map_labels <- as.numeric(unlisted_labels)
         color_labels <- COLORS[map_labels]
         col <- color_labels
@@ -121,16 +128,20 @@ get_color <- function(som_model) {
 
 # Returns a list of numbers that correspond to background color
 get_bgcol_num <- function(som, numeric_labels) {
+  # Get Nodes
   winner_nodes <- som$unit.classif
   num_nodes <- max(winner_nodes)
   num_labels <- length(unique(numeric_labels))
   counts <- matrix(0, nrow = num_nodes, ncol = num_labels)
+  # Count the number of each type of data in each node
   for (n in 1:length(winner_nodes)) {
     node <- winner_nodes[n]
     label <- numeric_labels[n]
     counts[node, label] <- counts[node, label] + 1
   }
   
+  # Set background color of each node based on 
+  # which type of data shows up the most
   bgcol_num <- rep(0, num_nodes)
   for (node in 1:num_nodes) {
     sub_counts <- counts[node,]
