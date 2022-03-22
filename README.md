@@ -11,14 +11,20 @@ The R Shiny SOM app provides a user interface for visualizing Self-Organizing Ma
 ## Installation
 
  1. Clone the repository
+
     This can be done from the Github website or with bash
 	```    
 	$ git clone https://github.com/emalderson/ThePhish.git
 	```
+   
  2. Make sure R is Installed
+
     You can install the r package [here](https://www.r-project.org/).
+
  3. Install the requirements
+
     Within R, you want to use the `install.packages()` function to download packages. The following packages need to be installed.
+
      - `shiny`
      - `shinyjs`
      - `shinyBS`
@@ -30,8 +36,11 @@ The R Shiny SOM app provides a user interface for visualizing Self-Organizing Ma
      - `dplyr`
      - `mlbench`
      - `RColorBrewer`
+
     There is a requirements.R file you can run to install all of the necessary libraries
+
  4. Open the app
+
     To open the app you have to run the main file. 
 
 ## Overview
