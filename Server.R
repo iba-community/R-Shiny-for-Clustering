@@ -12,6 +12,10 @@ server <- function(input, output, session) {
   preview_activated <- reactiveVal(FALSE)
   select_activated <- reactiveVal(FALSE)
   
+  ## -----------------------------------------------------------------------------------------------
+  ## Helper Functions and Reactives
+  ## -----------------------------------------------------------------------------------------------
+  
   # Gets file data
   get_upload_data <- reactive({
     # Shows by default until a upload is successful
@@ -70,6 +74,73 @@ server <- function(input, output, session) {
   clusters <- reactive({
     if(input$is_cluster) input$clusters else NULL
   })
+  
+  # Plots different types of SOM maps
+  plot_SOM <- function(plot_type){
+    # Get data
+    dataset <- get_dataset()
+    # Get SOM
+    som <- som()
+    # True if we are plotting an analysis plot
+    is_analysis <- F
+    
+    # Set type specific parameters
+    if (plot_type == "class") {
+      # Set Title
+      title <- if(input$class_name != "") input$class_name else "Class Representation Map"
+      # Set Labels
+      labels <- dataset[, input$class_labels]
+      # Set Type
+      type <- plot_type
+    } else if (plot_type == "continuous") {
+      # Set Title
+      title <- if(input$continuous_name != "") input$continuous_name else "Continuous Response Map"
+      # Set Labels
+      labels <- NULL
+      # Set Type
+      type <- plot_type
+    } else if (plot_type == "colorless") {
+      # Set Title
+      title <- if(input$colorless_name != "") input$colorless_name else "Colorless Mapping Plot"
+      # Set Labels
+      labels <- if(input$is_colorless_label) dataset[, input$colorless_labels] else NULL
+      # Set Type
+      type <- ""
+    } else if (plot_type == "counts") {
+      # Indicate that we are plotting an analysis plot
+      is_analysis <- T
+      # Set Title
+      title <- if(input$counts_name != "") input$counts_name else "Counts Plot"
+      # Set Type
+      type <- plot_type
+    } else if (plot_type == "distance") {
+      # Indicate that we are plotting an analysis plot
+      is_analysis <- T
+      # Set Title
+      title <- if(input$distance_name != "") input$distance_name else "Neighborhood Distance Plot"
+      # Set Type
+      type <- "dist.neighbour"
+    } else if (plot_type == "codes") {
+      # Indicate that we are plotting an analysis plot
+      is_analysis <- T
+      # Set Title
+      title <- if(input$codes_name != "") input$codes_name else "Codes Plot"
+      # Set Type
+      type <- plot_type
+    }
+    
+    # Display plot
+    if (is_analysis) {
+      display_analysis_plot(som_model = som, type = type, clusters = clusters(), title = title)
+    } else{
+      display_mapping_plot(som_model = som, type = type, title = title, 
+                           clusters = clusters(), labels = labels)
+    }
+  }
+  
+  ## -----------------------------------------------------------------------------------------------
+  ## Updates and Initializes Visualization tab features and options
+  ## -----------------------------------------------------------------------------------------------
   
   # Checks for file input and then creates selectInput
   observeEvent(input$file,{
@@ -135,72 +206,38 @@ server <- function(input, output, session) {
     DT::datatable(preview_data, options = list(dom = 't'), selection = list(target = 'column'))
   })
   
-  ## Start Rendering Things
+  ## -----------------------------------------------------------------------------------------------
+  ## Render Plots
+  ## -----------------------------------------------------------------------------------------------
+  
   # Renders Class Representation Map
   output$class <- renderPlot({
-    # Get data
-    dataset <- get_dataset()
-    # Get SOM
-    som <- som()
-    # Get title
-    title <- if(input$class_name != "") input$tricolor_name else "Class Representation Map"
-    # Get labels
-    labels <- dataset[, input$class_labels]
-    display_mapping_plot(som, "class", title, labels = labels, clusters = clusters())
+    plot_SOM("class")
   })
   
   # Renders Continuous SOM Plot
   output$continuous <- renderPlot({
-    # Get SOM
-    som <- som()
-    # Get title
-    title <- if(input$continuous_name != "") input$continuous_name else "Continuous Response Map"
-    # Visually display the SOM
-    display_mapping_plot(som, "continuous", title, clusters = clusters())
+    plot_SOM("continuous")
   })
   
   # Renders colorless SOM Plot
   output$no_colors <- renderPlot({
-    # Get data
-    dataset <- get_dataset()
-    # Get SOM
-    som <- som()
-    # Get labels
-    labels <- if(input$is_colorless_label) dataset[, input$colorless_labels] else NULL
-    # Get title
-    title <- if(input$colorless_name != "") input$colorless_name else "Colorless Mapping Plot"
-    # Visually display the SOM
-    display_mapping_plot(som, "", title, labels = labels, clusters = clusters())
+    plot_SOM("colorless")
   })
   
   # Renders Counts Plot
   output$counts <- renderPlot({
-    # Get SOM
-    som <- som()
-    # Get title
-    title <- if(input$counts_name != "") input$counts_name else "Counts Plot"
-    # Visually display the SOM
-    display_analysis_plot(som, "counts", clusters = clusters(), title = title)
+    plot_SOM("counts")
   })
   
   # Renders Neighbourhood Distance Plot
   output$distance <- renderPlot({
-    # Get SOM
-    som <- som()
-    # Get title
-    title <- if(input$distance_name != "") input$distance_name else "Neighborhood Distance Plot"
-    # Visually display the SOM
-    display_analysis_plot(som, "dist.neighbour", clusters = clusters(), title = title)
+    plot_SOM("distance")
   })
   
   # Renders Codes Plot
   output$codes <- renderPlot({
-    # Get SOM
-    som <- som()
-    # Get title
-    title <- if(input$codes_name != "") input$codes_name else "Codes Plot"
-    # Visually display the SOM
-    display_analysis_plot(som, "codes", clusters = clusters(), title = title)
+    plot_SOM("codes")
   })
   
   # Gets sample datasets
@@ -245,7 +282,10 @@ server <- function(input, output, session) {
     import_type("sample")
   })
   
-  # Connects the preview table with the select columns options
+  ## -----------------------------------------------------------------------------------------------
+  ## Connects the preview table with the select columns options
+  ## -----------------------------------------------------------------------------------------------
+
   onclick("columns", {
     select_activated(TRUE)
   })
@@ -263,7 +303,6 @@ server <- function(input, output, session) {
       updateSelectInput(session, inputId = "columns", selected = column_names)
     }
   }, ignoreNULL = F)
-  
   observeEvent(input$columns, {
     if (select_activated()) {
       preview_activated(FALSE)
@@ -277,86 +316,61 @@ server <- function(input, output, session) {
     }
   }, ignoreNULL = F)
   
-  # Save plots
+  ## -----------------------------------------------------------------------------------------------
+  ## Save plots
+  ## -----------------------------------------------------------------------------------------------
+  
+  # Save Colorless Mapping Plot
   output$save_colorless <- downloadHandler(
     filename = "plot.png",
     content = function(file) {
-      # Get data
-      data <- get_dataset()
-      # Get SOM
-      som <- som()
-      # Get labels
-      labels <- if(input$is_colorless_label) data[, input$colorless_labels] else NULL
-      # Get title
-      title <- if(input$colorless_name != "") input$colorless_name else "Colorless Mapping Plot"
-      # Visually display the SOM
       png(file)
-      display_mapping_plot(som, "", title, labels = labels, clusters = clusters())
+      plot_SOM("colorless")
       dev.off()
     }
   )
+  # Save Class Representation Map
   output$save_class <- downloadHandler(
     filename = "plot.png",
     content = function(file) {
-      # Get SOM
-      som <- som()
-      # Get title
-      title <- if(input$tricolor_name != "") input$tricolor_name else "Tricolor Plot"
-      # Visually display the SOM
       png(file)
-      display_mapping_plot(som, "tricolor", title, clusters = clusters())
+      plot_SOM("class")
       dev.off()
     }
   )
+  # Save Continuous Response Map
   output$save_continuous <- downloadHandler(
     filename = "plot.png",
     content = function(file) {
-      # Get SOM
-      som <- som()
-      # Get title
-      title <- if(input$continuous_name != "") input$continuous_name else "Continuous Response Map"
-      # Visually display the SOM
       png(file)
-      display_mapping_plot(som, "continuous", title, clusters = clusters())
+      plot_SOM("continuous")
       dev.off()
     }
   )
+  # Save Counts Plot
   output$save_counts <- downloadHandler(
     filename = "plot.png",
     content = function(file) {
-      # Get SOM
-      som <- som()
-      # Get title
-      title <- if(input$counts_name != "") input$counts_name else "Counts Plot"
-      # Visually display the SOM
       png(file)
-      display_analysis_plot(som, "counts", clusters = clusters(), title = title)
+      plot_SOM("counts")
       dev.off()
     }
   )
+  # Save Distance Plot
   output$save_distance <- downloadHandler(
     filename = "plot.png",
     content = function(file) {
-      # Get SOM
-      som <- som()
-      # Get title
-      title <- if(input$distance_name != "") input$distance_name else "Neighborhood Distance Plot"
-      # Visually display the SOM
       png(file)
-      display_analysis_plot(som, "dist.neighbour", clusters = clusters(), title = title)
+      plot_SOM("distance")
       dev.off()
     }
   )
+  # Save Codes Plots
   output$save_codes <- downloadHandler(
     filename = "plot.png",
     content = function(file) {
-      # Get SOM
-      som <- som()
-      # Get title
-      title <- if(input$codes_name != "") input$codes_name else "Codes Plot"
-      # Visually display the SOM
       png(file)
-      display_analysis_plot(som, "codes", clusters = clusters(), title = title)
+      plot_SOM("codes")
       dev.off()
     }
   )
